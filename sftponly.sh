@@ -72,15 +72,15 @@ if [[ $MODE == "add" ]]; then
 			exit 1
 		fi
 
+		# check if JAILGROUP exists, if not create it
+		if ! getent group $JAILGROUP &>/dev/null; then
+			groupadd $JAILGROUP
+		fi
+
 		# check if JAILHOME exists, if not create it
 		if [ ! -d "$JAILHOME" ]; then
 			mkdir -p "$JAILHOME"
 			chown root:sftpusers $JAILHOME
-		fi
-
-		# check if JAILGROUP exists, if not create it
-		if ! getent group $JAILGROUP &>/dev/null; then
-			groupadd $JAILGROUP
 		fi
 
 		# check if DOMAIN-dir exists, if not create it
