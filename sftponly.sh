@@ -122,6 +122,8 @@ if [ "$MODE" = "add" ]; then
 		chown $USERNAME:$JAILGROUP $JAILHOME/$USERHOME/html
 		chmod 775 $JAILHOME/$USERHOME/html
 		echo "[OK] User home owner and rights set up."
+
+		echo "[OK] User is now ready to login via sftp."
   fi
 fi
 
@@ -137,8 +139,8 @@ if [ "$MODE" = "remove" ]; then
 
 		# delete user with his home directory
 		userdel $USERNAME
-		echo "[OK] User deleted.
-		"
+		echo "[OK] User deleted."
+
 		rm -rf $JAILHOME/$USERHOME
-		echo "[OK] Deleted user home ($JAILHOME/$USERHOME)."
+		echo "[OK] User home ($JAILHOME/$USERHOME) deleted."
 fi
