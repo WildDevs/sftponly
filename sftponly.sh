@@ -2,11 +2,12 @@
 
 # check if user is running this script as root
 if [ "$(id -u)" -ne 0 ]; then 
-	echo "You need to run this script as root, exiting."
+	echo "[FAIL] You need to be root to run this script, exiting."
 	exit 1
 fi
 
 usage() { echo "Usage: $0 -m <add|remove> [-u <string>] [-p <string>]" 1>&2; exit 1; }
+
 [ $# -eq 0 ] && usage
 while getopts "hm:u:p:" OPTION
 do
@@ -51,95 +52,93 @@ Match group $JAILGROUP
   ForceCommand internal-sftp
 " >> $SSHDCONFIG
 
-service sshd restart
+	echo "[OK] Added Match Group in sshd_config."
+
+	service sshd restart
+	echo "[OK] sshd restarted."
 fi
 
-if [[ -z $MODE ]]; then
+if [ "$MODE" != "add" ] && [ "$MODE" != "remove" ]; then
   usage
   exit 1
 fi
 
-if [[ $MODE == "add" ]]; then
-  if [[ -z $USERNAME ]] || [[ -z $PASSWORD ]]; then
+if [[ -z $USERNAME ]]; then
+	usage
+	exit 1
+else
+	DOMAIN=$(sed 's/.*\.\(.*\..*\)/\1/' <<< $USERNAME)
+
+	# check if its only DOMAIN without sub-DOMAIN
+	if [[ "$USERNAME" != "$DOMAIN" ]]; then
+		USERHOME=$DOMAIN/$USERNAME
+	else
+		USERHOME=$DOMAIN
+	fi
+fi
+
+if [ "$MODE" = "add" ]; then
+  if [[ -z $PASSWORD ]]; then
     usage
     exit 1
-	else 
-		DOMAIN=$(sed 's/.*\.\(.*\..*\)/\1/' <<< $USERNAME)
-
+	else
 		# check if given user exists
 		if getent passwd $USERNAME &>/dev/null; then
-			echo "User already exists, exiting."
+			echo "[FAIL] User already exists, exiting."
 			exit 1
 		fi
 
 		# check if JAILGROUP exists, if not create it
 		if ! getent group $JAILGROUP &>/dev/null; then
 			groupadd $JAILGROUP
+			echo "[OK] sftponly group created."
 		fi
 
 		# check if JAILHOME exists, if not create it
 		if [ ! -d "$JAILHOME" ]; then
 			mkdir -p "$JAILHOME"
 			chown root:sftpusers $JAILHOME
-		fi
-
-		# check if DOMAIN-dir exists, if not create it
-		if [ ! -d "$JAILHOME/$DOMAIN/" ]; then
-			mkdir -p "$JAILHOME/$DOMAIN/"
-		fi
-
-		# check if its only DOMAIN without sub-DOMAIN
-		if [[ "$USERNAME" != "$DOMAIN" ]]; then
-			USERHOME=$DOMAIN/$USERNAME
-		else
-			USERHOME=$DOMAIN
+			echo "[OK] Jail home ($JAILHOME) created."
 		fi
 
 		# check if home with html dir exists, if not create it
 		if [ ! -d "$JAILHOME/$USERHOME/html" ]; then
 			mkdir -p "$JAILHOME/$USERHOME/html"
+			echo "[OK] User home directory ($JAILHOME/$USERHOME/html) created."
 		fi
 
 		# add user
 		useradd -r -g $JAILGROUP -s /sbin/nologin -G www-data $USERNAME -d $JAILHOME/$USERHOME
+		echo "[OK] User created, assigned to the $JAILGROUP group and disallowed ssh login."
+
+		# change users password to the given one
+		usermod --password $(echo $PASSWORD | openssl passwd -1 -stdin) $USERNAME
+		echo "[OK] User password assigned."
 
 		chown root:$JAILGROUP $JAILHOME/$USERHOME
 		chmod 755 $JAILHOME/$USERHOME
+		echo "[OK] Jail home owner and rights set up."
+
 		chown $USERNAME:$JAILGROUP $JAILHOME/$USERHOME/html
 		chmod 775 $JAILHOME/$USERHOME/html
-
-		# change to given password
-		usermod --password $(echo $PASSWORD | openssl passwd -1 -stdin) $USERNAME
-
+		echo "[OK] User home owner and rights set up."
   fi
 fi
 
-if [[ $MODE == "remove" ]]; then
-  if [[ -z $USERNAME ]]; then
-    usage
-    exit 1
-	else
-		DOMAIN=$(sed 's/.*\.\(.*\..*\)/\1/' <<< $USERNAME)
-		
-		# check if its only DOMAIN without sub-DOMAIN
-		if [[ "$USERNAME" != "$DOMAIN" ]]; then
-			USERHOME=$DOMAIN/$USERNAME
-		else
-			USERHOME=$DOMAIN
-		fi
-
+if [ "$MODE" = "remove" ]; then		
 		if ! getent passwd $USERNAME &>/dev/null; then
-			echo "User does not exist, exiting."
+			echo "[FAIL] User does not exist, exiting."
 			exit 1
 		fi
 
 		# kill users session
 		killall -u $USERNAME
+		echo "[OK] Active user sessions killed."
 
 		# delete user with his home directory
 		userdel $USERNAME
-		echo "Deleting $JAILHOME/$USERHOME"
+		echo "[OK] User deleted.
+		"
 		rm -rf $JAILHOME/$USERHOME
-  fi
+		echo "[OK] Deleted user home ($JAILHOME/$USERHOME)."
 fi
-
