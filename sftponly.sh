@@ -37,10 +37,7 @@ JAILGROUP=sftpusers
 JAILHOME=/var/www/htdocs
 
 # comment out original Subsystem and add Subsystem for internal-sftp
-if grep -Fxq 'Subsystem sftp /usr/lib/openssh/sftp-server' $SSHDCONFIG; then
-  sed -i 's/^[^#]*Subsystem sftp \/usr\/lib\/openssh\/sftp-server/#&/' $SSHDCONFIG
-  echo "\nSubsystem sftp internal-sftp" >> $SSHDCONFIG
-fi
+sed -i 's/^Subsystem\s\+sftp\s\+\/usr\/lib\/openssh\/sftp-server$/#&\nSubsystem sftp internal-sftp/g' $SSHDCONFIG
 
 # add jail rules for group
 if ! grep -q "Match group $JAILGROUP" $SSHDCONFIG; then
